@@ -2,11 +2,9 @@ package SSiPP.Server;
 
 import javafx.beans.property.SimpleStringProperty;
 
-import java.io.File;
-
 public class Driver {
-    private SimpleStringProperty typeProperty;
-    private SimpleStringProperty pathProperty;
+    private final SimpleStringProperty typeProperty;
+    private final SimpleStringProperty pathProperty;
 
     public Driver(String type, String path) {
         typeProperty = new SimpleStringProperty(type);

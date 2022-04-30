@@ -1,10 +1,5 @@
 package SSiPP.Server;
 
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.value.ObservableValue;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.collections.ObservableMap;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -18,12 +13,9 @@ import javafx.scene.input.MouseEvent;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import javafx.util.Callback;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.Map;
 import java.util.ResourceBundle;
 
 public class MainController implements Initializable {
@@ -40,7 +32,7 @@ public class MainController implements Initializable {
     @FXML
     public TableView tvDrivers;
 
-    private Server server;
+    private final Server server;
 
     public MainController() {
         server = new Server();
