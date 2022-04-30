@@ -17,9 +17,17 @@ public class AddDriverController {
     @FXML
     public Button btnCancel;
     @FXML
-    public Button btnSave1;
+    public Button btnSave;
     @FXML
     public Button btnAddExecutable;
+
+    private Server server;
+
+    public void initServer(Server server) {
+        if (this.server != null)
+            return;
+        this.server = server;
+    }
 
     @FXML
     public void handleBtnAddExecutableOnMouseReleased(MouseEvent mouseEvent) {
@@ -37,5 +45,7 @@ public class AddDriverController {
 
     @FXML
     public void handleBtnSaveOnMouseReleased(MouseEvent mouseEvent) {
+        server.addDriver(tfDriverType.getText(), tfPath.getText());
+        ((Stage)btnCancel.getScene().getWindow()).close();
     }
 }
