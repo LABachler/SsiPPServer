@@ -12,7 +12,6 @@ public class Server {
 
     public Server() {
         drivers = FXCollections.observableArrayList();
-        drivers.add(new Driver("opcua", "blabla.exe"));
     }
 
     public void addDriver(String type, String path) {
