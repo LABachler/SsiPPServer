@@ -1,5 +1,6 @@
 package SSiPP.Server;
 
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -13,6 +14,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.stage.WindowEvent;
 
 import java.io.IOException;
 import java.net.URL;
@@ -41,10 +43,10 @@ public class MainController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         tcDriver.setCellValueFactory(
-                new PropertyValueFactory<Driver, String>("typeProperty")
+                new PropertyValueFactory<Driver, String>("type")
         );
         tcPath.setCellValueFactory(
-                new PropertyValueFactory<Driver, String>("pathProperty")
+                new PropertyValueFactory<Driver, String>("path")
         );
 
         tvDrivers.setItems(server.getDrivers());
@@ -98,5 +100,9 @@ public class MainController implements Initializable {
 
     public void addDriver(String type, String path) {
         server.addDriver(type, path);
+    }
+
+    public void handleDefaultCloseOperation() {
+        server.saveInfoToFileSystem();
     }
 }

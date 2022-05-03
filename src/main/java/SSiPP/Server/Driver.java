@@ -11,28 +11,28 @@ public class Driver {
         pathProperty = new SimpleStringProperty(path);
     }
 
-    public String getTypeProperty() {
+    public String getType() {
         return typeProperty.get();
     }
 
-    public SimpleStringProperty typePropertyProperty() {
+    public SimpleStringProperty typeProperty() {
         return typeProperty;
     }
 
-    public void setTypeProperty(String typeProperty) {
-        this.typeProperty.set(typeProperty);
+    public void setType(String type) {
+        this.typeProperty.set(type);
     }
 
-    public String getPathProperty() {
+    public String getPath() {
         return pathProperty.get();
     }
 
-    public SimpleStringProperty pathPropertyProperty() {
+    public SimpleStringProperty pathProperty() {
         return pathProperty;
     }
 
-    public void setPathProperty(String pathProperty) {
-        this.pathProperty.set(pathProperty);
+    public void setPath(String path) {
+        this.pathProperty.set(path);
     }
 
     @Override
