@@ -6,4 +6,6 @@ module ssipp.server.ssipp_server {
 
     exports SSiPP.Server;
     opens SSiPP.Server to javafx.fxml;
+    exports SSiPP.Server.Controllers;
+    opens SSiPP.Server.Controllers to javafx.fxml;
 }

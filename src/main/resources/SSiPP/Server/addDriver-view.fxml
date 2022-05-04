@@ -5,7 +5,7 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.text.Text?>
 
-<AnchorPane prefHeight="228.0" prefWidth="442.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="SSiPP.Server.AddDriverController">
+<AnchorPane prefHeight="228.0" prefWidth="442.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="SSiPP.Server.Controllers.AddDriverController">
    <children>
       <TextField fx:id="tfPath" layoutX="59.0" layoutY="115.0" prefHeight="26.0" prefWidth="294.0" />
       <Text layoutX="28.0" layoutY="103.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Executable Path" />

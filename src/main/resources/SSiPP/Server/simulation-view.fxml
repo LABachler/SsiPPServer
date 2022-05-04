@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.AnchorPane?>
 
 
-<AnchorPane prefHeight="218.0" prefWidth="427.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="SSiPP.Server.SimulationController">
+<AnchorPane prefHeight="218.0" prefWidth="427.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="SSiPP.Server.Controllers.SimulationController">
    <children>
       <Button fx:id="btnSimBasic" layoutX="37.0" layoutY="32.0" mnemonicParsing="false" onMouseReleased="#handleBtnSimBasicOnRelease" prefHeight="26.0" prefWidth="112.0" text="Sim Basic String" />
    </children>

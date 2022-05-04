@@ -1,6 +1,7 @@
-package SSiPP.Server;
+package SSiPP.Server.Controllers;
 
-import javafx.event.EventHandler;
+import SSiPP.Server.Driver;
+import SSiPP.Server.Server;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -14,7 +15,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import javafx.stage.WindowEvent;
 
 import java.io.IOException;
 import java.net.URL;
@@ -68,7 +68,7 @@ public class MainController implements Initializable {
     }
 
     private void openSimulationDialog() {
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("simulation-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/SSiPP/Server/simulation-view.fxml"));
         try {
             Parent root1 = fxmlLoader.load();
             Stage stage = new Stage();
@@ -83,7 +83,7 @@ public class MainController implements Initializable {
     }
 
     private void openAddDriverDialog() {
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("addDriver-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/SSiPP/Server/addDriver-view.fxml"));
         try {
             Parent root = fxmlLoader.load();
             Stage stage = new Stage();
