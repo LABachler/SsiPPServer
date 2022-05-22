@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextArea?>
 <?import javafx.scene.layout.AnchorPane?>
 
-
-<AnchorPane prefHeight="218.0" prefWidth="427.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="SSiPP.Server.Controllers.SimulationController">
+<AnchorPane prefHeight="288.0" prefWidth="427.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="SSiPP.Server.Controllers.SimulationController">
    <children>
-      <Button fx:id="btnSimBasic" layoutX="37.0" layoutY="32.0" mnemonicParsing="false" onMouseReleased="#handleBtnSimBasicOnRelease" prefHeight="26.0" prefWidth="112.0" text="Sim Basic String" />
+      <Button fx:id="btnSimBasic" layoutX="37.0" layoutY="32.0" mnemonicParsing="false" onMouseReleased="#handleBtnSimBasicOnRelease" prefHeight="26.0" prefWidth="112.0" text="Sim String" />
+      <TextArea fx:id="taProcess" layoutX="37.0" layoutY="74.0" prefHeight="200.0" prefWidth="378.0" text="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot; standalone=&quot;no&quot;?&gt;&lt;process default_quantity=&quot;100kg&quot; id=&quot;0&quot; multiplier=&quot;&quot; name=&quot;DemoProcess&quot; driver_type=&quot;opcua&quot;&gt;&lt;module_instance datablock_name=&quot;DemoData&quot; line_id=&quot;1&quot; plc=&quot;10.0.0.120&quot; type=&quot;DemoBlock&quot;&gt;&lt;module_instance_report&gt;&lt;time_started&gt;&lt;/time_started&gt;&lt;time_finished&gt;&lt;/time_finished&gt;&lt;status&gt;STAT_IDLE&lt;/status&gt;&lt;message&gt;&lt;/message&gt;&lt;error&gt;&lt;/error&gt;&lt;/module_instance_report&gt;&lt;param name=&quot;p_number&quot;&gt;100&lt;/param&gt;&lt;report name=&quot;r_number&quot;&gt;&lt;/report&gt;&lt;/module_instance&gt;&lt;/process&gt;" />
    </children>
 </AnchorPane>

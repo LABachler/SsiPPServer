@@ -1,4 +1,4 @@
-package SSiPP.Server;
+package SSiPP.Server.Driver;
 
 import javafx.beans.property.SimpleStringProperty;
 
@@ -33,6 +33,10 @@ public class Driver {
 
     public void setPath(String path) {
         this.pathProperty.set(path);
+    }
+
+    public void start(int id) {
+        //todo start path with id argument
     }
 
     @Override

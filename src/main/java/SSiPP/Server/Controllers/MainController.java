@@ -1,6 +1,6 @@
 package SSiPP.Server.Controllers;
 
-import SSiPP.Server.Driver;
+import SSiPP.Server.Driver.Driver;
 import SSiPP.Server.Server;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -76,6 +76,7 @@ public class MainController implements Initializable {
             stage.initStyle(StageStyle.DECORATED);
             stage.setTitle("Simulation");
             stage.setScene(new Scene(root1));
+            ((SimulationController)fxmlLoader.getController()).initServer(server);
             stage.show();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -96,10 +97,6 @@ public class MainController implements Initializable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public void addDriver(String type, String path) {
-        server.addDriver(type, path);
     }
 
     public void handleDefaultCloseOperation() {

@@ -1,7 +1,10 @@
 package SSiPP.Server;
 
+import SSiPP.Server.Driver.Driver;
+import SSiPP.Server.Driver.Service.DriverCommunicatorService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.util.Duration;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -185,4 +188,9 @@ public class Server {
             throw new RuntimeException(e);
         }
     }
+
+    public Jedis getJedis() {
+        return jedis;
+    }
+
 }
