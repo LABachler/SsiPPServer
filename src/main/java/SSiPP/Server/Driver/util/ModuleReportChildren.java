@@ -1,5 +1,8 @@
 package SSiPP.Server.Driver.util;
 
+/**
+ * Module report children names
+ */
 public enum ModuleReportChildren {
     TIME_STARTED("time_started"),
     TIME_FINISHED("time_finished"),

@@ -1,5 +1,8 @@
 package SSiPP.Server.Driver.util;
 
+/**
+ * Commands for the PLC
+ */
 public enum Command {
     CMD_NOTHING("CMD_NOTHING"),
     CMD_START("CMD_START"),
@@ -14,6 +17,10 @@ public enum Command {
         this.text = text;
     }
 
+    /**
+     * @param cmd
+     * @return Logical number of the given command
+     */
     public static int getNum(Command cmd) {
         switch (cmd) {
             case CMD_NOTHING:

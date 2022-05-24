@@ -1,5 +1,8 @@
 package SSiPP.Server.Driver.util;
 
+/**
+ * Status translations of the plc
+ */
 public enum Status {
     STAT_IDLE("STAT_IDLE"),
     STAT_COMPLETE("STAT_COMPLETE"),
@@ -16,6 +19,10 @@ public enum Status {
         this.text = text;
     }
 
+    /**
+     * @param status
+     * @return Logical number of the given status
+     */
     public static int getNum(Status status) {
         switch (status) {
             case STAT_IDLE:

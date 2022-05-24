@@ -1,10 +1,8 @@
 package SSiPP.Server;
 
 import SSiPP.Server.Driver.Driver;
-import SSiPP.Server.Driver.Service.DriverCommunicatorService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.util.Duration;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -27,15 +25,42 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Server responsible for handling API and Drivers
+ */
 public class Server {
+    /**
+     * SSiPP root directory
+     */
     static final String SSIPP_DIR_PATH = System.getProperty("user.home") + File.separator + ".ssipp";
+    /**
+     * process templates directory
+     */
     static final String PROCESS_TEMPLATE_PATH = SSIPP_DIR_PATH + File.separator + "process_templates";
+    /**
+     * processes directory
+     */
     static final String PROCESSES_PATH = SSIPP_DIR_PATH + File.separator + "processes";
+    /**
+     * module instances directory
+     */
     static final String MODULE_INSTANCES_PATH = SSIPP_DIR_PATH + File.separator + "module_instances";
+    /**
+     * driver xml information file
+     */
     static final String DRIVERS_PATH = SSIPP_DIR_PATH + File.separator + "drivers.xml";
+    /**
+     * driver template
+     */
     static final String DRIVERS_TEMPLATE = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" +
             "<drivers></drivers>";
+    /**
+     * module report xml template
+     */
     static final String MODULE_REPORT_PATH = SSIPP_DIR_PATH + File.separator + "module_report.xml";
+    /**
+     * module report template content
+     */
     static final String MODULE_REPORT_TEMPLATE_CONTENT = "" +
             "<module_instance_report>" +
                 "<time_started></time_started>" +
@@ -46,15 +71,27 @@ public class Server {
                 "<error></error>" +
                 "<error_message></error_message>" +
             "</module_instance_report>";
+    /**
+     * List of known drivers
+     */
     private final ObservableList<Driver> drivers;
-    private final Jedis jedis;
+    /**
+     * Redis connection
+     */
+    private final Jedis redis;
     private File workingDir;
+    /**
+     * document builder for parsing xml
+     */
     private DocumentBuilder documentBuilder;
+    /**
+     * x path needed for creating x path expressions
+     */
     private XPath xPath;
 
     public Server() {
         drivers = FXCollections.observableArrayList();
-        jedis = new Jedis();
+        redis = new Jedis();
         checkAndCreateFilesAndDirectories();
         try {
             documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
@@ -141,11 +178,11 @@ public class Server {
     }
 
     private void writeToRedis(int processId, String string) {
-        jedis.set("ssipp_" + processId, string);
+        redis.set("ssipp_" + processId, string);
     }
 
     private String readFromRedis(int processId) {
-        return jedis.get("ssipp_" + processId);
+        return redis.get("ssipp_" + processId);
     }
 
     public void saveInfoToFileSystem() {
@@ -189,8 +226,8 @@ public class Server {
         }
     }
 
-    public Jedis getJedis() {
-        return jedis;
+    public Jedis getRedis() {
+        return redis;
     }
 
 }

@@ -4,6 +4,7 @@ import SSiPP.Server.Driver.Driver;
 import SSiPP.Server.Driver.util.Command;
 import SSiPP.Server.Driver.util.ModuleReportChildren;
 import SSiPP.Server.Driver.util.Status;
+import SSiPP.Server.Driver.util.XMLUtil;
 import SSiPP.Server.Server;
 import javafx.concurrent.ScheduledService;
 import javafx.concurrent.Task;
@@ -31,35 +32,87 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Scheduled Service to handle communication between server and Drivers
+ * @author Lukas Andrea Bachler
+ * @version 0.1
+ */
 public class DriverCommunicatorService extends ScheduledService<String> {
+    /**
+     * XML Document as currently known
+     */
     private Document xml;
+    /**
+     * X-Path for executing xpath queries
+     */
     private XPath xPath;
+    /**
+     * Managing server
+     */
     private Server server;
+    /**
+     * Id of the running process
+     */
     private String id;
+    /**
+     * Nodes that are currently running on hardware
+     */
     private List<Node> currentNodes;
+    /**
+     * Should the currently running nodes be held
+     */
     private boolean hold;
+    /**
+     * Should the currently running nodes be aborted
+     */
     private boolean abort;
+    /**
+     * Should the currently running nodes be reset
+     */
     private boolean reset;
+    /**
+     * Should the currently running nodes be restarted
+     */
     private boolean restart;
 
-    DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+    /**
+     * Format of time_started and time_finished
+     */
+    static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
+    /**
+     * Set the hold mode
+     */
     public void hold() {
         hold = true;
     }
 
+    /**
+     * Set the abort mode
+     */
     public void abort() {
         abort = true;
     }
 
+    /**
+     * Set the reset mode
+     */
     public void reset() {
         reset = true;
     }
 
+    /**
+     * Set the restart mode
+     */
     public void restart() {
         restart = true;
     }
 
+    /**
+     * Constructor for the Scheduled Service
+     * @param server Parent Server handling this Service
+     * @param xml XML Process to be handled
+     */
     public DriverCommunicatorService(Server server, String xml) {
         System.out.println("Driver Communicator Service created for: " + xml);
         try {
@@ -73,7 +126,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             List<Driver> drivers = this.server.getDrivers().stream()
                     .filter(driver -> driver.getType().compareToIgnoreCase(driverType) == 0).collect(Collectors.toList());
             if (!drivers.isEmpty()) {
-                server.getJedis().set("ssipp_" + id, getXmlString());
+                server.getRedis().set("ssipp_" + id, getXmlString());
                 drivers.get(0).start(Integer.valueOf(id));
             }
         } catch (SAXException e) {
@@ -87,16 +140,21 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         }
     }
 
+    /**
+     * Task that is rerun in the scheduler
+     * @return Result is the current XML correctly formatted for the GUI
+     */
     @Override
     protected Task<String> createTask() {
         return new Task<String>() {
             @Override
             protected String call() throws Exception {
                 Document driverXml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder()
-                        .parse(new InputSource(new StringReader(server.getJedis().get("ssipp_" + id))));
+                        .parse(new InputSource(new StringReader(server.getRedis().get("ssipp_" + id))));
                 updateDocFromDriver(driverXml);
                 if (allCurrentRunningFinished())
                     startNextNode();
+
                 if (abort)
                     abortCurrent();
                 else if (reset)
@@ -111,16 +169,29 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         };
     }
 
+    /**
+     * @return ID of loaded XML
+     * @throws XPathExpressionException
+     */
     private String findId() throws XPathExpressionException {
-        XPathExpression expression = xPath.compile("/process");
-        return ((Node)expression.evaluate(xml, XPathConstants.NODE)).getAttributes().getNamedItem("id").getNodeValue();
+        XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
+        return ((Node)expression.evaluate(xml, XPathConstants.NODE)).getAttributes()
+                .getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue();
     }
 
+    /**
+     * @return DriverType that has to be loaded
+     * @throws XPathExpressionException
+     */
     private String findDriverType() throws XPathExpressionException {
-        XPathExpression expression = xPath.compile("/process");
-        return ((Node)expression.evaluate(xml, XPathConstants.NODE)).getAttributes().getNamedItem("driver_type").getNodeValue();
+        XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
+        return ((Node)expression.evaluate(xml, XPathConstants.NODE)).getAttributes()
+                .getNamedItem(XMLUtil.ATTRIBUTE_DRIVER.toString()).getNodeValue();
     }
 
+    /**
+     * @return Full XML Document in String format
+     */
     private String getXmlString() {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer;
@@ -138,6 +209,9 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         }
     }
 
+    /**
+     * @return Full XML Document in String format with Commands and Status in literal format
+     */
     private String getXmlStringLiteral() {
         String result = getXmlString();
         for (Command command : Command.values()) {
@@ -148,37 +222,59 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         return result;
     }
 
+    /**
+     * Sets all Commands in the module_instance_report s to "do nothing"
+     * @throws XPathExpressionException
+     */
     private void setAllCommandsNothing() throws XPathExpressionException {
-        XPathExpression expression = xPath.compile("//module_instance_report/" + ModuleReportChildren.COMMAND.toString());
+        XPathExpression expression = xPath.compile("//" + XMLUtil.TAG_MODULE_INSTANCE_REPORT + "/"
+                + ModuleReportChildren.COMMAND);
         NodeList commands = (NodeList) expression.evaluate(xml, XPathConstants.NODE);
         for (int i = 0; i < commands.getLength(); i++)
             commands.item(i).setTextContent(String.valueOf(Command.getNum(Command.CMD_NOTHING)));
     }
 
+    /**
+     * Aborts all currently running modules
+     */
     private void abortCurrent() {
         for (Node n : currentNodes)
             findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_ABORT)));
+        abort = false;
     }
 
+    /**
+     * Holds all currently running modules
+     */
     private void holdCurrent() {
         for (Node n : currentNodes)
             findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_HOLD)));
     }
 
+    /**
+     * Resets all currently running modules
+     */
     private void resetCurrent() {
         for (Node n : currentNodes)
             findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_RESET)));
     }
 
+    /**
+     * Restarts all currently running modules
+     */
     private void restartCurrent() {
         for (Node n : currentNodes)
             findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_RESTART)));
     }
 
+    /**
+     * Checks if all modules marked as currently running have finished
+     * @return true, if all currently running have STATE: STAT_COMPLETE, false otherwise
+     */
     private boolean allCurrentRunningFinished() {
         for (Node n : currentNodes) {
             if (findNodeByName(n.getChildNodes(), ModuleReportChildren.STATUS.toString()).getTextContent()
@@ -188,12 +284,17 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         return true;
     }
 
+    /**
+     * Checks if all Children of a given node have finished
+     * @param node node for which children are to be checked
+     * @return true, if all children have finished, false otherwise
+     */
     private boolean allNodeChildrenFinished(Node node) {
         for (int i = 0; i < node.getChildNodes().getLength(); i++) {
             Node n = node.getChildNodes().item(i);
-            if (n.getNodeName().compareTo("parallel") == 0 && !allNodeChildrenFinished(n))
+            if (n.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0 && !allNodeChildrenFinished(n))
                 return false;
-            if (findNodeByName(findNodeByName(n.getChildNodes(), "module_instance_report").getChildNodes(),
+            if (findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
                     ModuleReportChildren.STATUS.toString()).getTextContent()
                                 .compareTo(Status.STAT_COMPLETE.toString()) != 0)
                 return false;
@@ -201,6 +302,10 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         return true;
     }
 
+    /**
+     * Checks which node or nodes are to be run next and starts those
+     * Stops the Service if reached the end of the process
+     */
     private void startNextNode() {
         if (!allCurrentRunningFinished())
             return;
@@ -208,25 +313,29 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         Node parent = currentNodes.get(0).getParentNode().getParentNode();
         currentNodes.clear();
 
-        if (parent.getNodeName().compareTo("process") == 0 && allNodeChildrenFinished(parent))
+        if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 && allNodeChildrenFinished(parent))
             System.out.println("STOP ME");
         else if (!allNodeChildrenFinished(parent)) {
             startNextChild(parent);
         } else if (allNodeChildrenFinished(parent)) {
             do {
                 parent = parent.getParentNode();
-            } while (allNodeChildrenFinished(parent) && parent.getNodeName().compareTo("process") != 0);
-            if (parent.getNodeName().compareTo("process") == 0)
+            } while (allNodeChildrenFinished(parent) && parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) != 0);
+            if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0)
                 System.out.println("STOP ME");
             else
                 startNextChild(parent);
         }
     }
 
+    /**
+     * Starts next child of a given parent node
+     * @param parent of children which are to be started
+     */
     private void startNextChild(Node parent) {
         for (int i = 0; i < parent.getChildNodes().getLength(); i++) {
             String status = findNodeByName(
-                    findNodeByName(parent.getChildNodes().item(i).getChildNodes(), "module_instance_report")
+                    findNodeByName(parent.getChildNodes().item(i).getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString())
                             .getChildNodes(),ModuleReportChildren.STATUS.toString())
                             .getTextContent();
             if (status.compareTo(Status.STAT_IDLE.toString()) == 0) {
@@ -237,16 +346,20 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         }
     }
 
+    /**
+     * Starts the given node
+     * @param node to be started
+     */
     private void startNode(Node node) {
         if (node == null)
             return;
 
-        if (node.getNodeName().compareTo("parallel") == 0) {
+        if (node.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0) {
             startParallel(node);
             return;
         }
 
-        Node moduleInstanceReport = findNodeByName(node.getChildNodes(), "module_instance_report");
+        Node moduleInstanceReport = findNodeByName(node.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
         findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_STARTED.toString())
                 .setTextContent(dateTimeFormatter.format(LocalDateTime.now()));
         findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
@@ -254,14 +367,24 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         currentNodes.add(moduleInstanceReport);
     }
 
+    /**
+     * Starts a parallel node
+     * @param node parallel for which all children should be started simultaneously
+     */
     private void startParallel(Node node) {
         for (int i = 0; i < node.getChildNodes().getLength(); i++)
             startNode(node.getChildNodes().item(i));
     }
 
+    /**
+     * Updates the Document from the Driver site
+     * This method only updates values that are important to update from the driver side
+     * These would be for instance reports, status, .. not parameter, time_started, time_finished,...
+     * @param source Source document which was given by driver
+     */
     private void updateDocFromDriver(Document source) {
         try {
-            XPathExpression rootExpression = xPath.compile("/process");
+            XPathExpression rootExpression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
             Node rootDest = (Node) rootExpression.evaluate(xml, XPathConstants.NODE);
             Node rootSource = (Node) rootExpression.evaluate(source, XPathConstants.NODE);
             for (int i = 0; i < rootDest.getChildNodes().getLength() && i < rootSource.getChildNodes().getLength(); i++)
@@ -271,33 +394,48 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         }
     }
 
+    /**
+     * Updates a single module instance from driver side
+     * @param destination node into which values are to be inserted
+     * @param source node from which values are to be taken
+     */
     private void updateModuleInstanceFromDriver(Node destination, Node source) {
-        if (source.getNodeName().compareTo("parallel") == 0) {
+        if (source.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0) {
             updateParallelFromDriver(destination, source);
             return;
         }
         for (int i = 0; i < source.getChildNodes().getLength(); i++) {
             Node sourceNode = source.getChildNodes().item(i);
-            if (sourceNode.getNodeName().compareTo("module_instance_report") == 0)
+            if (sourceNode.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()) == 0)
                 updateModuleInstanceReportFromDriver(findNodeByName(destination.getChildNodes(), sourceNode.getNodeName()),
                         sourceNode);
             else if (sourceNode.getNodeName().compareTo(ModuleReportChildren.REPORT.toString()) == 0)
                 updateNodeValue(findNodeByName(destination.getChildNodes(), sourceNode.getNodeName(),
-                        sourceNode.getAttributes().getNamedItem("name").getNodeValue()), sourceNode);
+                        sourceNode.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_NAME.toString()).getNodeValue()), sourceNode);
         }
     }
 
+    /**
+     * Updates a parallel node from driver side
+     * @param destination parallel node into which values are to be inserted
+     * @param source parallel node from which values are to be taken
+     */
     private void updateParallelFromDriver(Node destination, Node source) {
         for (int i = 0; i < destination.getChildNodes().getLength() && i < source.getChildNodes().getLength(); i++) {
-            if (source.getNodeName().compareTo("parallel") == 0)
+            if (source.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0)
                 updateParallelFromDriver(destination.getChildNodes().item(i), source.getChildNodes().item(i));
             else
                 updateModuleInstanceFromDriver(findModuleInstanceByDatablockName(destination.getChildNodes(),
-                        source.getAttributes().getNamedItem("datablock_name").getNodeValue()),
+                        source.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_DATABLOCK.toString()).getNodeValue()),
                         source.getChildNodes().item(i));
         }
     }
 
+    /**
+     * Updates a module instance report from driver side
+     * @param destinationModuleReport module instance report node into which values are to be inserted
+     * @param sourceModuleReport module instance report node from which values are to be taken
+     */
     private void updateModuleInstanceReportFromDriver(Node destinationModuleReport, Node sourceModuleReport) {
         for (int i = 0; i < sourceModuleReport.getChildNodes().getLength(); i++) {
             Node source = sourceModuleReport.getChildNodes().item(i);
@@ -311,7 +449,6 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                 Node destination = findNodeByName(destinationModuleReport.getChildNodes(), sourceNodeName);
                 if (Integer.valueOf(source.getTextContent()) == Status.getNum(Status.STAT_COMPLETE)
                         && destination.getTextContent().compareTo(Status.STAT_COMPLETE.toString()) != 0) {
-                    DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
                     LocalDateTime now = LocalDateTime.now();
                     findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString())
                             .setTextContent(dateTimeFormatter.format(now));
@@ -321,28 +458,53 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         }
     }
 
+    /**
+     * Updates the text contents of the destination node from the source node
+     * @param destination
+     * @param source
+     */
     private void updateNodeValue(Node destination, Node source) {
         if (source != null && destination != null && source.getTextContent() != "")
             destination.setTextContent(source.getTextContent());
     }
 
+    /**
+     * Finds a node in a node list
+     * @param source list to be searched through
+     * @param nameToMatch name that should be matched
+     * @return matching node, or null if none was found
+     */
     private Node findNodeByName(NodeList source, String nameToMatch) {
         return findNodeByName(source, nameToMatch, "");
     }
 
+    /**
+     * Finds a node in a node list
+     * @param source list to be searched
+     * @param nameToMatch name that should be matched
+     * @param attributeNameToMatch attribute name that has to be matched additionally
+     * @return matching node, or null if none was found
+     */
     private Node findNodeByName(NodeList source, String nameToMatch, String attributeNameToMatch) {
         for (int i = 0; i < source.getLength(); i++) {
             if (source.item(i).getNodeName().compareTo(nameToMatch) == 0)
                 if (attributeNameToMatch.length() == 0
-                        || source.item(i).getAttributes().getNamedItem("name").getNodeValue().compareTo(attributeNameToMatch) == 0)
+                        || source.item(i).getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_NAME.toString())
+                        .getNodeValue().compareTo(attributeNameToMatch) == 0)
                     return source.item(i);
         }
         return null;
     }
 
+    /**
+     * Finds a module instance in a node list
+     * @param source list to be searched
+     * @param dataBlockName datablock name to match
+     * @return matching module instance node, or null if none was found
+     */
     private Node findModuleInstanceByDatablockName(NodeList source, String dataBlockName) {
         for (int i = 0; i < source.getLength(); i++)
-            if (source.item(i).getAttributes().getNamedItem("datablock_name").getNodeValue()
+            if (source.item(i).getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_DATABLOCK.toString()).getNodeValue()
                     .compareTo(dataBlockName) == 0)
                 return source.item(i);
         return null;
