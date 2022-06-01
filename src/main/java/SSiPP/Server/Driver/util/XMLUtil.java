@@ -4,6 +4,7 @@ public enum XMLUtil {
     TAG_PROCESS("process"),
     TAG_MODULE_INSTANCE_REPORT("module_instance_report"),
     TAG_PARALLEL("parallel"),
+    TAG_MODULE_INSTANCE("module_instance"),
     ATTRIBUTE_ID("id"),
     ATTRIBUTE_DRIVER("driver_type"),
     ATTRIBUTE_NAME("name"),

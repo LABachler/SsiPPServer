@@ -9,6 +9,7 @@ import SSiPP.Server.Server;
 import javafx.concurrent.ScheduledService;
 import javafx.concurrent.Task;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
@@ -76,6 +77,11 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     private boolean restart;
 
     /**
+     * Node counter for giving ids to the module_instances
+     */
+    private int nodeCounter;
+
+    /**
      * Format of time_started and time_finished
      */
     static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
@@ -115,6 +121,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      */
     public DriverCommunicatorService(Server server, String xml) {
         System.out.println("Driver Communicator Service created for: " + xml);
+        this.nodeCounter = 0;
         try {
             this.xml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
             setAllCommandsNothing();
@@ -122,13 +129,6 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             this.server = server;
             this.id = findId();
             this.currentNodes = new ArrayList<>();
-            String driverType = findDriverType();
-            List<Driver> drivers = this.server.getDrivers().stream()
-                    .filter(driver -> driver.getType().compareToIgnoreCase(driverType) == 0).collect(Collectors.toList());
-            if (!drivers.isEmpty()) {
-                server.getRedis().set("ssipp_" + id, getXmlString());
-                drivers.get(0).start(Integer.valueOf(id));
-            }
         } catch (SAXException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
@@ -148,10 +148,9 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     protected Task<String> createTask() {
         return new Task<String>() {
             @Override
-            protected String call() throws Exception {
-                Document driverXml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder()
-                        .parse(new InputSource(new StringReader(server.getRedis().get("ssipp_" + id))));
-                updateDocFromDriver(driverXml);
+            protected String call() {
+                for (Node n : currentNodes)
+                    updateFromDriver(n);
                 if (allCurrentRunningFinished())
                     startNextNode();
 
@@ -177,16 +176,6 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
         return ((Node)expression.evaluate(xml, XPathConstants.NODE)).getAttributes()
                 .getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue();
-    }
-
-    /**
-     * @return DriverType that has to be loaded
-     * @throws XPathExpressionException
-     */
-    private String findDriverType() throws XPathExpressionException {
-        XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
-        return ((Node)expression.evaluate(xml, XPathConstants.NODE)).getAttributes()
-                .getNamedItem(XMLUtil.ATTRIBUTE_DRIVER.toString()).getNodeValue();
     }
 
     /**
@@ -310,11 +299,21 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         if (!allCurrentRunningFinished())
             return;
 
-        Node parent = currentNodes.get(0).getParentNode().getParentNode();
+        Node parent;
+        if (currentNodes.size() > 0)
+            parent = currentNodes.get(0).getParentNode().getParentNode();
+        else {
+            try {
+                XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
+                parent = (Node) expression.evaluate(xml, XPathConstants.NODESET);
+            } catch (XPathExpressionException e) {
+                throw new RuntimeException(e);
+            }
+        }
         currentNodes.clear();
 
         if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 && allNodeChildrenFinished(parent))
-            System.out.println("STOP ME");
+            this.cancel();
         else if (!allNodeChildrenFinished(parent)) {
             startNextChild(parent);
         } else if (allNodeChildrenFinished(parent)) {
@@ -322,7 +321,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                 parent = parent.getParentNode();
             } while (allNodeChildrenFinished(parent) && parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) != 0);
             if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0)
-                System.out.println("STOP ME");
+                this.cancel();
             else
                 startNextChild(parent);
         }
@@ -359,12 +358,23 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             return;
         }
 
-        Node moduleInstanceReport = findNodeByName(node.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
-        findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_STARTED.toString())
-                .setTextContent(dateTimeFormatter.format(LocalDateTime.now()));
-        findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
-                .setTextContent(String.valueOf(Command.getNum(Command.CMD_START)));
-        currentNodes.add(moduleInstanceReport);
+        String driverType = node.getAttributes().getNamedItem("driver_type").getNodeValue();
+
+        for (Driver driver : server.getDrivers()) {
+            if (driver.getType().compareTo(driverType) == 0) {
+                ((Element)node).setAttribute("id", String.valueOf(nodeCounter));
+
+                Node moduleInstanceReport = findNodeByName(node.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+                findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_STARTED.toString())
+                        .setTextContent(dateTimeFormatter.format(LocalDateTime.now()));
+                findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
+                        .setTextContent(String.valueOf(Command.getNum(Command.CMD_START)));
+                currentNodes.add(moduleInstanceReport);
+                driver.start(id + "_" + nodeCounter++);
+                return;
+            }
+        }
+        throw new RuntimeException("No corresponding driver found for: " + driverType);
     }
 
     /**
@@ -374,24 +384,6 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     private void startParallel(Node node) {
         for (int i = 0; i < node.getChildNodes().getLength(); i++)
             startNode(node.getChildNodes().item(i));
-    }
-
-    /**
-     * Updates the Document from the Driver site
-     * This method only updates values that are important to update from the driver side
-     * These would be for instance reports, status, .. not parameter, time_started, time_finished,...
-     * @param source Source document which was given by driver
-     */
-    private void updateDocFromDriver(Document source) {
-        try {
-            XPathExpression rootExpression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
-            Node rootDest = (Node) rootExpression.evaluate(xml, XPathConstants.NODE);
-            Node rootSource = (Node) rootExpression.evaluate(source, XPathConstants.NODE);
-            for (int i = 0; i < rootDest.getChildNodes().getLength() && i < rootSource.getChildNodes().getLength(); i++)
-                updateModuleInstanceFromDriver(rootDest.getChildNodes().item(i), rootSource.getChildNodes().item(i));
-        } catch (XPathExpressionException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     /**
@@ -508,5 +500,40 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                     .compareTo(dataBlockName) == 0)
                 return source.item(i);
         return null;
+    }
+
+    /**
+     * Fetches a module instance in the source by the given id
+     * @param source
+     * @param id
+     * @return
+     */
+    private Node findModuleInstanceById(Document source, String id) {
+        try {
+            XPathExpression expression = xPath.compile("//" + XMLUtil.TAG_MODULE_INSTANCE_REPORT +
+                    "[@" + XMLUtil.ATTRIBUTE_DRIVER + "='" + id + "']");
+            return (Node) expression.evaluate(source, XPathConstants.NODE);
+        } catch (XPathExpressionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Fetches Node information from Redis and updates the destination node
+     * @param destination
+     */
+    private void updateFromDriver(Node destination) {
+        try {
+            String moduleInstanceId = destination.getAttributes().getNamedItem("driver_type").getNodeValue();
+            Document driverXml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder()
+                    .parse(new InputSource(new StringReader(server.getRedis().get("ssipp_" + id + "_" + moduleInstanceId))));
+            updateModuleInstanceFromDriver(destination, findModuleInstanceById(driverXml, moduleInstanceId));
+        } catch (SAXException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ParserConfigurationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
