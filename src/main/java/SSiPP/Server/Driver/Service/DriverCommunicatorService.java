@@ -124,8 +124,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         this.nodeCounter = 0;
         try {
             this.xml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
-            setAllCommandsNothing();
             this.xPath = XPathFactory.newInstance().newXPath();
+            setAllCommandsNothing();
             this.server = server;
             this.id = findId();
             this.currentNodes = new ArrayList<>();

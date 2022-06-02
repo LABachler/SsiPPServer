@@ -103,7 +103,7 @@ public class Server {
 
     static final int SERVER_PORT = 7000;
 
-    public Server() throws IOException {
+    public Server() {
         drivers = FXCollections.observableArrayList();
         redis = new Jedis();
         checkAndCreateFilesAndDirectories();
@@ -115,7 +115,14 @@ public class Server {
         xPath = XPathFactory.newInstance().newXPath();
         loadDriversFromFileSystem();
 
-        HttpServer apiServer = HttpServer.create(new InetSocketAddress(SERVER_PORT), 0);
+        HttpServer apiServer = null;
+        try {
+            apiServer = HttpServer.create(new InetSocketAddress(SERVER_PORT), 0);
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
 
         apiServer = API(apiServer);
         apiServer.setExecutor(null); // creates a default executor

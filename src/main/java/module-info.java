@@ -3,6 +3,7 @@ module ssipp.server.ssipp_server {
     requires javafx.fxml;
     requires redis.clients.jedis;
     requires java.xml;
+    requires jdk.httpserver;
 
     exports SSiPP.Server;
     opens SSiPP.Server to javafx.fxml;
