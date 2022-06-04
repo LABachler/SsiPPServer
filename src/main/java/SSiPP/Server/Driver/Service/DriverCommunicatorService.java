@@ -126,6 +126,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             this.xml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
             this.xPath = XPathFactory.newInstance().newXPath();
             setAllCommandsNothing();
+            scale();
             this.server = server;
             this.id = findId();
             this.currentNodes = new ArrayList<>();
@@ -163,6 +164,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                 else if (hold)
                     holdCurrent();
                 System.out.println("Driver Communicator Service run! xml: " + getXmlString());
+                setRedis();
                 return getXmlStringLiteral();
             }
         };
@@ -227,9 +229,11 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      * Aborts all currently running modules
      */
     private void abortCurrent() {
-        for (Node n : currentNodes)
-            findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
+        for (Node n : currentNodes) {
+            Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+            findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_ABORT)));
+        }
         abort = false;
     }
 
@@ -237,27 +241,33 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      * Holds all currently running modules
      */
     private void holdCurrent() {
-        for (Node n : currentNodes)
-            findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
+        for (Node n : currentNodes) {
+            Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+            findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_HOLD)));
+        }
     }
 
     /**
      * Resets all currently running modules
      */
     private void resetCurrent() {
-        for (Node n : currentNodes)
-            findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
+        for (Node n : currentNodes) {
+            Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+            findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_RESET)));
+        }
     }
 
     /**
      * Restarts all currently running modules
      */
     private void restartCurrent() {
-        for (Node n : currentNodes)
-            findNodeByName(n.getChildNodes(), ModuleReportChildren.COMMAND.toString())
+        for (Node n : currentNodes) {
+            Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+            findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                     .setTextContent(String.valueOf(Command.getNum(Command.CMD_RESTART)));
+        }
     }
 
     /**
@@ -266,7 +276,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      */
     private boolean allCurrentRunningFinished() {
         for (Node n : currentNodes) {
-            if (findNodeByName(n.getChildNodes(), ModuleReportChildren.STATUS.toString()).getTextContent()
+            Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+            if (findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.STATUS.toString()).getTextContent()
                     .compareTo(Status.STAT_COMPLETE.toString()) != 0)
                 return false;
         }
@@ -283,7 +294,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             Node n = node.getChildNodes().item(i);
             if (n.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0 && !allNodeChildrenFinished(n))
                 return false;
-            if (findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
+            if (n.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE.toString()) == 0 &&
+                    findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
                     ModuleReportChildren.STATUS.toString()).getTextContent()
                                 .compareTo(Status.STAT_COMPLETE.toString()) != 0)
                 return false;
@@ -301,11 +313,11 @@ public class DriverCommunicatorService extends ScheduledService<String> {
 
         Node parent;
         if (currentNodes.size() > 0)
-            parent = currentNodes.get(0).getParentNode().getParentNode();
+            parent = currentNodes.get(0).getParentNode();
         else {
             try {
                 XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
-                parent = (Node) expression.evaluate(xml, XPathConstants.NODESET);
+                parent = (Node) expression.evaluate(xml, XPathConstants.NODE);
             } catch (XPathExpressionException e) {
                 throw new RuntimeException(e);
             }
@@ -320,7 +332,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             do {
                 parent = parent.getParentNode();
             } while (allNodeChildrenFinished(parent) && parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) != 0);
-            if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0)
+            if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 &&allNodeChildrenFinished(parent))
                 this.cancel();
             else
                 startNextChild(parent);
@@ -333,15 +345,26 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      */
     private void startNextChild(Node parent) {
         for (int i = 0; i < parent.getChildNodes().getLength(); i++) {
-            String status = findNodeByName(
-                    findNodeByName(parent.getChildNodes().item(i).getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString())
-                            .getChildNodes(),ModuleReportChildren.STATUS.toString())
-                            .getTextContent();
-            if (status.compareTo(Status.STAT_IDLE.toString()) == 0) {
-                startNode(parent.getChildNodes().item(i));
+            Node cur = parent.getChildNodes().item(i);
+            Node moduleInstanceReport = null;
+            if (cur.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0 &&
+                !allNodeChildrenFinished(cur)) {
+                NodeList toStart = cur.getChildNodes();
+                for (int startCounter = 0; startCounter < toStart.getLength(); startCounter++)
+                    startNode(toStart.item(startCounter));
                 return;
-            } else if (status.compareTo(Status.STAT_COMPLETE.toString()) != 0)
-                return;
+            }
+            else
+                moduleInstanceReport = findNodeByName(cur.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+            if (moduleInstanceReport != null) {
+                String status = findNodeByName(moduleInstanceReport.getChildNodes(),ModuleReportChildren.STATUS.toString())
+                        .getTextContent();
+                if (status.compareTo(Status.STAT_IDLE.toString()) == 0 || status.compareTo("") == 0) {
+                    startNode(parent.getChildNodes().item(i));
+                    return;
+                } else if (status.compareTo(Status.STAT_COMPLETE.toString()) != 0)
+                    return;
+            }
         }
     }
 
@@ -350,26 +373,22 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      * @param node to be started
      */
     private void startNode(Node node) {
-        if (node == null)
+        if (node == null || node.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE.toString()) != 0)
             return;
 
-        if (node.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0) {
-            startParallel(node);
-            return;
-        }
+        String driverType = node.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_DRIVER.toString()).getNodeValue();
 
-        String driverType = node.getAttributes().getNamedItem("driver_type").getNodeValue();
 
         for (Driver driver : server.getDrivers()) {
             if (driver.getType().compareTo(driverType) == 0) {
-                ((Element)node).setAttribute("id", String.valueOf(nodeCounter));
+                ((Element)node).setAttribute(XMLUtil.ATTRIBUTE_ID.toString(), String.valueOf(nodeCounter));
 
                 Node moduleInstanceReport = findNodeByName(node.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
                 findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_STARTED.toString())
                         .setTextContent(dateTimeFormatter.format(LocalDateTime.now()));
                 findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
                         .setTextContent(String.valueOf(Command.getNum(Command.CMD_START)));
-                currentNodes.add(moduleInstanceReport);
+                currentNodes.add(node);
                 driver.start(id + "_" + nodeCounter++);
                 return;
             }
@@ -524,7 +543,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      */
     private void updateFromDriver(Node destination) {
         try {
-            String moduleInstanceId = destination.getAttributes().getNamedItem("driver_type").getNodeValue();
+            String moduleInstanceId = destination.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue();
             Document driverXml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder()
                     .parse(new InputSource(new StringReader(server.getRedis().get("ssipp_" + id + "_" + moduleInstanceId))));
             updateModuleInstanceFromDriver(destination, findModuleInstanceById(driverXml, moduleInstanceId));
@@ -533,6 +552,55 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         } catch (ParserConfigurationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Writes all currently running nodes to redis.
+     */
+    private void setRedis() {
+        for (Node n : currentNodes) {
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer;
+            try {
+                transformer = transformerFactory.newTransformer();
+                StringWriter sw = new StringWriter();
+                StreamResult result = new StreamResult(sw);
+                DOMSource source = new DOMSource(n);
+                transformer.transform(source, result);
+                String moduleInstanceId = id + "_" + n.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue();
+                server.getRedis().set("ssipp_" + moduleInstanceId, result.getWriter().toString());
+            } catch (TransformerConfigurationException e) {
+                throw new RuntimeException(e);
+            } catch (TransformerException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    /**
+     * Scales all parameters according to the scale attribute in the process
+     */
+    private void scale() {
+        try {
+            XPathExpression expression = xPath.compile("/" + XMLUtil.TAG_PROCESS);
+            Node process = (Node) expression.evaluate(xml, XPathConstants.NODE);
+            String scale = process.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_SCALE.toString()).getNodeValue();
+
+            if (scale.length() == 0)
+                return;
+
+            float scaleValue = Float.valueOf(scale);
+
+            expression = xPath.compile("//" + XMLUtil.TAG_PARAM);
+            NodeList nodeList = (NodeList) expression.evaluate(xml, XPathConstants.NODESET);
+
+            for (int i = 0; i < nodeList.getLength(); i++) {
+                Node n = nodeList.item(i);
+                n.setTextContent(String.valueOf(Float.valueOf(n.getTextContent()) * scaleValue));
+            }
+        } catch (XPathExpressionException e) {
             throw new RuntimeException(e);
         }
     }

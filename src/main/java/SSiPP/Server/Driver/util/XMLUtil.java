@@ -5,10 +5,12 @@ public enum XMLUtil {
     TAG_MODULE_INSTANCE_REPORT("module_instance_report"),
     TAG_PARALLEL("parallel"),
     TAG_MODULE_INSTANCE("module_instance"),
+    TAG_PARAM("param"),
     ATTRIBUTE_ID("id"),
-    ATTRIBUTE_DRIVER("driver_type"),
+    ATTRIBUTE_DRIVER("driver"),
     ATTRIBUTE_NAME("name"),
-    ATTRIBUTE_DATABLOCK("datablock_name");
+    ATTRIBUTE_DATABLOCK("datablock_name"),
+    ATTRIBUTE_SCALE("scale");
 
     private final String text;
     XMLUtil(final String text){

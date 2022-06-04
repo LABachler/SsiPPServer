@@ -11,7 +11,7 @@ public enum ModuleReportChildren {
     MESSAGE("MSG"),
     ERROR("ERROR"),
     ERROR_MESSAGE("E_MSG"),
-    REPORT("REPORT");
+    REPORT("report");
 
     private final String text;
     ModuleReportChildren(final String text){

@@ -2,6 +2,8 @@ package SSiPP.Server.Controllers;
 
 import SSiPP.Server.Driver.Service.DriverCommunicatorService;
 import SSiPP.Server.Server;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
@@ -26,7 +28,7 @@ public class SimulationController {
     public void handleBtnSimBasicOnRelease(MouseEvent mouseEvent) {
         DriverCommunicatorService driverCommunicatorService = new DriverCommunicatorService(
                 server, taProcess.getText());
-        driverCommunicatorService.setPeriod(Duration.millis(500));
+        driverCommunicatorService.setPeriod(Duration.seconds(1));
         driverCommunicatorService.start();
     }
 }
