@@ -31,7 +31,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Scheduled Service to handle communication between server and Drivers
@@ -163,7 +162,6 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                     restartCurrent();
                 else if (hold)
                     holdCurrent();
-                System.out.println("Driver Communicator Service run! xml: " + getXmlString());
                 setRedis();
                 return getXmlStringLiteral();
             }
@@ -464,13 +462,15 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                 updateNodeValue(findNodeByName(destinationModuleReport.getChildNodes(), sourceNodeName), source);
             else if (sourceNodeName.compareTo(ModuleReportChildren.STATUS.toString()) == 0) {
                 Node destination = findNodeByName(destinationModuleReport.getChildNodes(), sourceNodeName);
-                if (Integer.valueOf(source.getTextContent()) == Status.getNum(Status.STAT_COMPLETE)
-                        && destination.getTextContent().compareTo(Status.STAT_COMPLETE.toString()) != 0) {
-                    LocalDateTime now = LocalDateTime.now();
-                    findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString())
-                            .setTextContent(dateTimeFormatter.format(now));
+                if (!source.getTextContent().isEmpty()) {
+                    if (Integer.valueOf(source.getTextContent()) == Status.getNum(Status.STAT_COMPLETE)
+                            && destination.getTextContent().compareTo(Status.STAT_COMPLETE.toString()) != 0) {
+                        LocalDateTime now = LocalDateTime.now();
+                        findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString())
+                                .setTextContent(dateTimeFormatter.format(now));
+                    }
+                    destination.setTextContent(Status.values()[Integer.valueOf(source.getTextContent())].toString());
                 }
-                destination.setTextContent(Status.values()[Integer.valueOf(source.getTextContent())].toString());
             }
         }
     }
@@ -521,8 +521,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      */
     private Node findModuleInstanceById(Document source, String id) {
         try {
-            XPathExpression expression = xPath.compile("//" + XMLUtil.TAG_MODULE_INSTANCE_REPORT +
-                    "[@" + XMLUtil.ATTRIBUTE_DRIVER + "='" + id + "']");
+            XPathExpression expression = xPath.compile("//" + XMLUtil.TAG_MODULE_INSTANCE +
+                    "[@" + XMLUtil.ATTRIBUTE_ID + "='" + id + "']");
             return (Node) expression.evaluate(source, XPathConstants.NODE);
         } catch (XPathExpressionException e) {
             throw new RuntimeException(e);
@@ -540,10 +540,13 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                     .parse(new InputSource(new StringReader(server.getRedis().get("ssipp_" + id + "_" + moduleInstanceId))));
             updateModuleInstanceFromDriver(destination, findModuleInstanceById(driverXml, moduleInstanceId));
         } catch (SAXException e) {
+            System.out.println(e.getMessage());
             throw new RuntimeException(e);
         } catch (IOException e) {
+            System.out.println(e.getMessage());
             throw new RuntimeException(e);
         } catch (ParserConfigurationException e) {
+            System.out.println(e.getMessage());
             throw new RuntimeException(e);
         }
     }
