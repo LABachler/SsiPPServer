@@ -349,9 +349,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             Node moduleInstanceReport = null;
             if (cur.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0 &&
                 !allNodeChildrenFinished(cur)) {
-                NodeList toStart = cur.getChildNodes();
-                for (int startCounter = 0; startCounter < toStart.getLength(); startCounter++)
-                    startNode(toStart.item(startCounter));
+                startParallel(cur);
                 return;
             }
             else
@@ -373,7 +371,15 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      * @param node to be started
      */
     private void startNode(Node node) {
-        if (node == null || node.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE.toString()) != 0)
+        if (node == null)
+            return;
+
+        if (node.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0) {
+            startParallel(node);
+            return;
+        }
+
+        if (node.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE.toString()) != 0)
             return;
 
         String driverType = node.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_DRIVER.toString()).getNodeValue();
@@ -436,8 +442,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             if (source.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0)
                 updateParallelFromDriver(destination.getChildNodes().item(i), source.getChildNodes().item(i));
             else
-                updateModuleInstanceFromDriver(findModuleInstanceByDatablockName(destination.getChildNodes(),
-                        source.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_DATABLOCK.toString()).getNodeValue()),
+                updateModuleInstanceFromDriver(findModuleInstanceById(xml,
+                        source.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue()),
                         source.getChildNodes().item(i));
         }
     }
@@ -475,7 +481,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
      * @param source
      */
     private void updateNodeValue(Node destination, Node source) {
-        if (source != null && destination != null && source.getTextContent() != "")
+        if (source != null && destination != null && !source.getTextContent().isEmpty())
             destination.setTextContent(source.getTextContent());
     }
 
@@ -504,20 +510,6 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                         .getNodeValue().compareTo(attributeNameToMatch) == 0)
                     return source.item(i);
         }
-        return null;
-    }
-
-    /**
-     * Finds a module instance in a node list
-     * @param source list to be searched
-     * @param dataBlockName datablock name to match
-     * @return matching module instance node, or null if none was found
-     */
-    private Node findModuleInstanceByDatablockName(NodeList source, String dataBlockName) {
-        for (int i = 0; i < source.getLength(); i++)
-            if (source.item(i).getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_DATABLOCK.toString()).getNodeValue()
-                    .compareTo(dataBlockName) == 0)
-                return source.item(i);
         return null;
     }
 
