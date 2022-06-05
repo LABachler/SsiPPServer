@@ -599,4 +599,18 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             throw new RuntimeException(e);
         }
     }
+
+    /**
+     * @return -1 if id is invalid, else id converted to int
+     */
+    public int getId() {
+        if (this.id.isEmpty())
+            return -1;
+        try {
+            return Integer.valueOf(this.id);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+
+    }
 }
