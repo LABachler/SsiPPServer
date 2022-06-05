@@ -2,6 +2,8 @@ package SSiPP.Server.Driver;
 
 import javafx.beans.property.SimpleStringProperty;
 
+import java.io.IOException;
+
 public class Driver {
     private final SimpleStringProperty typeProperty;
     private final SimpleStringProperty pathProperty;
@@ -35,9 +37,56 @@ public class Driver {
         this.pathProperty.set(path);
     }
 
+    /**
+     * Checks extension and starts the corresponding program with id as parameter
+     * @param id argument with which executable gets started
+     */
     public void start(String id) {
-        //todo start path with id argument
+        boolean isWindows = System.getProperty("os.name")
+                   .toLowerCase().startsWith("windows");
+
+        String path = getPath();
+
+        if (path.endsWith(".exe")) {
+
+            ProcessBuilder builder = new ProcessBuilder();
+
+            if (isWindows) {
+                builder.command(path, id);
+            } else {
+                //need wine support
+                throw new UnsupportedOperationException("exe not supported for non windows systems");
+            }
+            try {
+                Process process = builder.start();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else if (path.endsWith(".js")) {
+
+            ProcessBuilder builder = new ProcessBuilder();
+            builder.command("node " + path, id);
+
+            try {
+                Process process = builder.start();
+            }   catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
     }
+
+
+
+
+
+
+
+
+
+
 
     @Override
     public String toString() {
