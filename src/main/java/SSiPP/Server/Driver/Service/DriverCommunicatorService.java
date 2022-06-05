@@ -590,7 +590,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
 
             float scaleValue = Float.valueOf(scale);
 
-            expression = xPath.compile("//" + XMLUtil.TAG_PARAM);
+            expression = xPath.compile("//" + XMLUtil.TAG_PARAM + "[@" + XMLUtil.ATTRIBUTE_NAME + "='" +
+                    XMLUtil.QUANTITY + "']");
             NodeList nodeList = (NodeList) expression.evaluate(xml, XPathConstants.NODESET);
 
             for (int i = 0; i < nodeList.getLength(); i++) {

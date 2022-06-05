@@ -10,7 +10,8 @@ public enum XMLUtil {
     ATTRIBUTE_DRIVER("driver"),
     ATTRIBUTE_NAME("name"),
     ATTRIBUTE_DATABLOCK("datablock_name"),
-    ATTRIBUTE_SCALE("scale");
+    ATTRIBUTE_SCALE("scale"),
+    QUANTITY("quantity");
 
     private final String text;
     XMLUtil(final String text){
