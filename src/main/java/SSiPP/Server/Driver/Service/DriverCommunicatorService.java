@@ -275,8 +275,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     private boolean allCurrentRunningFinished() {
         for (Node n : currentNodes) {
             Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
-            if (findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.STATUS.toString()).getTextContent()
-                    .compareTo(Status.STAT_COMPLETE.toString()) != 0)
+            if (findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString()).getTextContent()
+                    .isEmpty())
                 return false;
         }
         return true;
@@ -293,9 +293,9 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             if (n.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0 && !allNodeChildrenFinished(n))
                 return false;
             if (n.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE.toString()) == 0 &&
-                    findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
-                    ModuleReportChildren.STATUS.toString()).getTextContent()
-                                .compareTo(Status.STAT_COMPLETE.toString()) != 0)
+                    !(findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
+                    ModuleReportChildren.TIME_FINISHED.toString()).getTextContent()
+                            .isEmpty()))
                 return false;
         }
         return true;
@@ -468,6 +468,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                         LocalDateTime now = LocalDateTime.now();
                         findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString())
                                 .setTextContent(dateTimeFormatter.format(now));
+                        findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.STATUS.toString())
+                                .setTextContent(Command.CMD_RESET.toString());
                     }
                     destination.setTextContent(Status.values()[Integer.valueOf(source.getTextContent())].toString());
                 }
