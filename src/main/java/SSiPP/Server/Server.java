@@ -102,8 +102,6 @@ public class Server {
     public String getDcsLastValue(int id) {
         for(int i = 0; i < dcs.size(); i++)
         {
-            System.out.println(dcs.get(i).getId());
-            System.out.println(id);
             if(dcs.get(i).getId() == id){
                 try{
                     return (dcs.get(i).getLastValue()== null ? "-" : dcs.get(i).getLastValue());
