@@ -4,8 +4,10 @@ import SSiPP.Server.Driver.Driver;
 import SSiPP.Server.Driver.Service.DriverCommunicatorService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.util.Duration;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -26,6 +28,7 @@ import javax.xml.xpath.XPathFactory;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -70,11 +73,11 @@ public class Server {
             "<module_instance_report>" +
             "<time_started></time_started>" +
             "<time_finished></time_finished>" +
-            "<command></command>" +
-            "<status></status>" +
-            "<message></message>" +
-            "<error></error>" +
-            "<error_message></error_message>" +
+            "<STATUS/>" +
+            "<COMMAND/>" +
+            "<MESSAGE/>"+
+            "<ERROR/>" +
+            "<E_MSG/>" +
             "</module_instance_report>";
     /**
      * List of known drivers
@@ -94,14 +97,23 @@ public class Server {
      */
     private XPath xPath;
 
-    DriverCommunicatorService dcs = null;
+    ArrayList<DriverCommunicatorService> dcs = new ArrayList<DriverCommunicatorService>();
 
-    public DriverCommunicatorService getDcs() {
-        return dcs;
-    }
-
-    public void setDcs(DriverCommunicatorService dcs) {
-        this.dcs = dcs;
+    public String getDcsLastValue(int id) {
+        for(int i = 0; i < dcs.size(); i++)
+        {
+            System.out.println(dcs.get(i).getId());
+            System.out.println(id);
+            if(dcs.get(i).getId() == id){
+                try{
+                    return (dcs.get(i).getLastValue()== null ? "-" : dcs.get(i).getLastValue());
+                }catch(Exception e){
+                    System.out.println("getRunningProcess: " + e.getMessage());
+                }
+                return "-";
+            }
+        }
+        return null;
     }
 
     static final int SERVER_PORT = 7000;
@@ -118,6 +130,9 @@ public class Server {
         xPath = XPathFactory.newInstance().newXPath();
         loadDriversFromFileSystem();
 
+        /**
+         * http server on which the api is running
+         */
         HttpServer apiServer = null;
         try {
             apiServer = HttpServer.create(new InetSocketAddress(SERVER_PORT), 0);
@@ -127,11 +142,20 @@ public class Server {
             throw new RuntimeException(e);
         }
 
-        apiServer = API(apiServer);
-        apiServer.setExecutor(null); // creates a default executor
+        apiServer = api(apiServer);
+        apiServer.setExecutor(null);
         apiServer.start();
     }
-    public HttpServer API(HttpServer server) {
+
+    /**
+     * creates contexts for URI
+     * calls corresponding method depending on URI
+     * on which the api call was made
+     * @param server http server on which the api is running
+     * @return server
+     */
+    public HttpServer api(HttpServer server) {
+
         server.createContext("/SSiPP/process_templates", (exchange ->
         {
             try {
@@ -198,6 +222,7 @@ public class Server {
         }));
         server.createContext("/SSiPP/get_running_process", (exchange ->
         {
+            System.out.println(exchange.getRequestURI().getRawQuery());
             try{
                 exchangeData(exchange,"GET","get_running_process");
             } catch(Exception e) {
@@ -207,6 +232,15 @@ public class Server {
         return server;
     }
 
+    /**
+     * allows api call only from a trusted source (our web page)
+     * if api call allowed it sends data read from files saved on a computer
+     * or receives data and saves that data in a file system
+     * @param exchange data to be sent or received
+     * @param method GET or POST method for api call
+     * @param URI api URI
+     * @throws Exception :
+     */
     private void exchangeData(HttpExchange exchange, String method, String URI) throws Exception {
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "http://localhost:63343");
 
@@ -245,18 +279,18 @@ public class Server {
                 return;
             }
             if ("GET".equals(exchange.getRequestMethod())) {
+                System.out.println(exchange.getRequestURI());
                 String respText = switch (URI) {
                     case "process_templates" -> getProcessTemplates();
                     case "module_instances" -> getModuleInstances();
                     case "modules" -> getModules();
                     case "historical_processes" -> getHistoricalProcesses();
-                    case "get_running_process" -> getRunningProcess();
+                    case "get_running_process" -> getDcsLastValue(Integer.parseInt(exchange.getRequestURI().toString().replaceAll("[\\D]", "")));
                     default -> "";
                 };
                 exchange.sendResponseHeaders(200, respText.getBytes().length);
                 OutputStream output = exchange.getResponseBody();
                 output.write(respText.getBytes());
-                System.out.println(respText);
                 output.flush();
             }
             else {
@@ -266,14 +300,20 @@ public class Server {
         exchange.close();
     }
 
-    private String getRunningProcess(){
-        System.out.println(getDcs().getLastValue());
-        return getDcs().getLastValue();
-    }
+
+    /*private String getRunningProcess(){
+        try{
+            return (getDcsValue()== null ? "-" : getDcs().getLastValue());
+        }catch(Exception e){
+            System.out.println("getRunningProcess: " + e.getMessage());
+        }
+        return "-";
+    }*/
     private void startProcess(String xmlData) throws Exception {
         String[] files = new File(PROCESS_TEMPLATE_PATH).list();
         Document doc = loadXMLFromString(xmlData);
-        String id = parseName(doc, "//startProcess/@id");
+        String id = parseAttribute(doc, "//startProcess/@id");
+        String scale = parseAttribute(doc,"//startProcess/@scale");
         StringBuilder processTemplate = new StringBuilder();
         for(int i = 0; i< files.length; i++) {
             if(files[i].contains(id)){
@@ -286,17 +326,33 @@ public class Server {
             }
         }
         Document startedProcessDoc = loadXMLFromString(processTemplate.toString());
+        String finalProcess = getStringFromDoc(startedProcessDoc);
+        finalProcess = finalProcess.replace("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>", "");
+        finalProcess = finalProcess.replaceFirst("[\\\r\\\n]+","");
         XPath xPath = XPathFactory.newInstance().newXPath();
         NodeList nodes = (NodeList) xPath.evaluate("//process/@id", startedProcessDoc, XPathConstants.NODESET);
-        String name = parseName(startedProcessDoc, "//process/@name");
-        Node node = nodes.item(0);
-        node.setNodeValue(String.valueOf(findStartedProcessId()));
+        NodeList scaleNodes = (NodeList) xPath.evaluate("//process/@scale", startedProcessDoc, XPathConstants.NODESET);
+        String name = parseAttribute(startedProcessDoc, "//process/@name");
+        Node idNode = nodes.item(0);
+        Node scaleNode = scaleNodes.item(0);
+        scaleNode.setNodeValue(String.valueOf(scale));
+        idNode.setNodeValue(String.valueOf(findStartedProcessId()));
         String process = getStringFromDoc(startedProcessDoc);
         process = process.replace("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>", "");
         process = process.replaceFirst("[\\\r\\\n]+","");
         createFile(process, PROCESSES_PATH + File.separator + findStartedProcessId() +"_"
                 + name + ".txt");
-        setDcs(new DriverCommunicatorService(this, process));
+
+
+        String finalProcessXML = finalProcess;
+        Platform.runLater(() -> {
+            dcs.add(new DriverCommunicatorService(this, finalProcessXML));
+            dcs.get(dcs.size() - 1).setPeriod(Duration.millis(250));
+            dcs.get(dcs.size() - 1).start();
+            //setDcs(new DriverCommunicatorService(this, finalProcess));
+            //getDcs().setPeriod(Duration.millis(250));
+            //getDcs().start();
+        });
     }
     private int findStartedProcessId(){
         String[] files = new File(PROCESSES_PATH).list();
@@ -312,43 +368,36 @@ public class Server {
         String[] files = new File(PROCESS_TEMPLATE_PATH).list();
         StringBuilder processTemplates = new StringBuilder("<processes>");
         for(int i = 0; i< files.length; i++) {
-            System.out.println(PROCESS_TEMPLATE_PATH + File.separator +files[i]);
-            File myObj = new File(PROCESS_TEMPLATE_PATH + File.separator + files[i]);
+             File myObj = new File(PROCESS_TEMPLATE_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
-                System.out.println(data);
                 processTemplates.append(data);
             }
             myReader.close();
         }
         processTemplates.append("</processes>");
-        System.out.println(processTemplates);
         return processTemplates.toString();
     }
     private String getModuleInstances() throws FileNotFoundException {
         String[] files = new File(MODULE_INSTANCES_PATH).list();
         StringBuilder processTemplates = new StringBuilder("<module_instances>");
         for(int i = 0; i< files.length; i++) {
-            System.out.println(MODULE_INSTANCES_PATH + File.separator +files[i]);
             File myObj = new File(MODULE_INSTANCES_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
-                System.out.println(data);
                 processTemplates.append(data);
             }
             myReader.close();
         }
         processTemplates.append("</module_instances>");
-        System.out.println(processTemplates);
         return processTemplates.toString();
     }
     private String getModules() throws FileNotFoundException {
         String[] files = new File(MODULES_PATH).list();
         StringBuilder processTemplates = new StringBuilder("<modules>");
         for(int i = 0; i< files.length; i++) {
-            System.out.println(MODULES_PATH + File.separator +files[i]);
             File myObj = new File(MODULES_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
@@ -364,7 +413,6 @@ public class Server {
         String[] files = new File(PROCESSES_PATH).list();
         StringBuilder processTemplates = new StringBuilder("<processes>");
         for(int i = 0; i< files.length; i++) {
-            System.out.println(MODULES_PATH + File.separator +files[i]);
             File myObj = new File(PROCESSES_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
@@ -374,23 +422,22 @@ public class Server {
             myReader.close();
         }
         processTemplates.append("</processes>");
-        System.out.println(processTemplates);
         return processTemplates.toString();
     }
     private void addProcessTemplate(String data) throws Exception {
         Document doc = loadXMLFromString(data);
-        String fileName = parseName(doc, "//process/@name");
-        String fileID = parseName(doc,"//process/@id");
+        String fileName = parseAttribute(doc, "//process/@name");
+        String fileID = parseAttribute(doc,"//process/@id");
         createFile(data,PROCESS_TEMPLATE_PATH + File.separator + fileID + "_" + fileName+".txt");
     }
     private void addModuleInstance(String data) throws Exception {
         Document doc = loadXMLFromString(data);
-        String fileName = parseName( doc, "//module_instance/@datablock_name");
+        String fileName = parseAttribute( doc, "//module_instance/@datablock_name");
         createFile(data,MODULE_INSTANCES_PATH+ File.separator + fileName+".txt");
     }
     private void addModule(String data) throws Exception {
         Document doc = loadXMLFromString(data);
-        String fileName = parseName( doc, "//module/@name");
+        String fileName = parseAttribute( doc, "//module/@name");
         createFile(data,MODULES_PATH + File.separator + fileName+".txt");
     }
     public static Document loadXMLFromString(String xml) throws Exception
@@ -413,15 +460,22 @@ public class Server {
         writer.flush();
         return writer.toString();
     }
-    private String parseName( Document doc, String nodePath) throws XPathExpressionException {
+
+    /**
+     * @param doc xml document from which to parse
+     * @param nodePath path to find the node
+     * @return attribute value
+     * @throws XPathExpressionException
+     */
+    private String parseAttribute(Document doc, String nodePath) throws XPathExpressionException {
         XPath xPath = XPathFactory.newInstance().newXPath();
         NodeList nodes = (NodeList) xPath.evaluate(nodePath, doc, XPathConstants.NODESET);
-        String name = "";
+        String value = "";
         for (int i = 0; i < nodes.getLength(); i++) {
             Node node = nodes.item(i);
-            name = node.getTextContent();
+            value = node.getTextContent();
         }
-        return name;
+        return value;
     }
     private void createFile(String data, String path) throws IOException {
         File file = new File(path);

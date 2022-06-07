@@ -6,6 +6,7 @@ import SSiPP.Server.Driver.util.ModuleReportChildren;
 import SSiPP.Server.Driver.util.Status;
 import SSiPP.Server.Driver.util.XMLUtil;
 import SSiPP.Server.Server;
+import javafx.application.Platform;
 import javafx.concurrent.ScheduledService;
 import javafx.concurrent.Task;
 import org.w3c.dom.Document;
@@ -149,20 +150,26 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         return new Task<String>() {
             @Override
             protected String call() {
-                for (Node n : currentNodes)
-                    updateFromDriver(n);
-                if (allCurrentRunningFinished())
-                    startNextNode();
+                Platform.runLater(() -> {
+                    try {
+                        for (Node n : currentNodes)
+                            updateFromDriver(n);
+                        if (allCurrentRunningFinished())
+                            startNextNode();
 
-                if (abort)
-                    abortCurrent();
-                else if (reset)
-                    resetCurrent();
-                else if (restart)
-                    restartCurrent();
-                else if (hold)
-                    holdCurrent();
-                setRedis();
+                        if (abort)
+                            abortCurrent();
+                        else if (reset)
+                            resetCurrent();
+                        else if (restart)
+                            restartCurrent();
+                        else if (hold)
+                            holdCurrent();
+                        setRedis();
+                    } catch (RuntimeException e) {
+                        System.out.println("Dcs call(): " + e.getMessage());
+                    }
+                });
                 return getXmlStringLiteral();
             }
         };
@@ -218,7 +225,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     private void setAllCommandsNothing() throws XPathExpressionException {
         XPathExpression expression = xPath.compile("//" + XMLUtil.TAG_MODULE_INSTANCE_REPORT + "/"
                 + ModuleReportChildren.COMMAND);
-        NodeList commands = (NodeList) expression.evaluate(xml, XPathConstants.NODE);
+        NodeList commands = (NodeList) expression.evaluate(xml, XPathConstants.NODESET);
         for (int i = 0; i < commands.getLength(); i++)
             commands.item(i).setTextContent(String.valueOf(Command.getNum(Command.CMD_NOTHING)));
     }
@@ -293,7 +300,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             if (n.getNodeName().compareTo(XMLUtil.TAG_PARALLEL.toString()) == 0 && !allNodeChildrenFinished(n))
                 return false;
             if (n.getNodeName().compareTo(XMLUtil.TAG_MODULE_INSTANCE.toString()) == 0 &&
-                    !(findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
+                    (findNodeByName(findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString()).getChildNodes(),
                     ModuleReportChildren.TIME_FINISHED.toString()).getTextContent()
                             .isEmpty()))
                 return false;
@@ -397,6 +404,11 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                 return;
             }
         }
+        Node moduleInstanceReport = findNodeByName(node.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
+        findNodeByName(moduleInstanceReport.getChildNodes(), XMLUtil.TAG_ERROR.toString())
+                .setTextContent("ERROR");
+        findNodeByName(moduleInstanceReport.getChildNodes(), XMLUtil.TAG_ERRORMESSAGE.toString())
+                .setTextContent("No corresponding driver found for: " + driverType);
         throw new RuntimeException("No corresponding driver found for: " + driverType);
     }
 

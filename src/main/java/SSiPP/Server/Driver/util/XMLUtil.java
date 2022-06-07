@@ -6,6 +6,8 @@ public enum XMLUtil {
     TAG_PARALLEL("parallel"),
     TAG_MODULE_INSTANCE("module_instance"),
     TAG_PARAM("param"),
+    TAG_ERROR("ERROR"),
+    TAG_ERRORMESSAGE("E_MSG"),
     ATTRIBUTE_ID("id"),
     ATTRIBUTE_DRIVER("driver"),
     ATTRIBUTE_NAME("name"),

@@ -36,7 +36,7 @@ public class MainController implements Initializable {
 
     private final Server server;
 
-    public MainController() {
+    public MainController() throws IOException {
         server = new Server();
     }
 

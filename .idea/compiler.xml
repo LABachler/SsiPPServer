@@ -11,7 +11,7 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="SsiPPServer" target="17" />
+      <module name="SsiPPServer" target="16" />
     </bytecodeTargetLevel>
   </component>
 </project>

@@ -66,8 +66,9 @@ public class Driver {
         else if (path.endsWith(".js")) {
 
             ProcessBuilder builder = new ProcessBuilder();
-            builder.command("node " + path, id);
-
+            builder.command("node", path, id);
+            builder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            builder.redirectError(ProcessBuilder.Redirect.INHERIT);
             try {
                 Process process = builder.start();
             }   catch (IOException e) {

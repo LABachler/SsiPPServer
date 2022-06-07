@@ -6,11 +6,11 @@ package SSiPP.Server.Driver.util;
 public enum ModuleReportChildren {
     TIME_STARTED("time_started"),
     TIME_FINISHED("time_finished"),
-    STATUS("STATUS"),
-    COMMAND("COMMAND"),
-    MESSAGE("MSG"),
-    ERROR("ERROR"),
-    ERROR_MESSAGE("E_MSG"),
+    STATUS("status"),
+    COMMAND("command"),
+    MESSAGE("message"),
+    ERROR("error"),
+    ERROR_MESSAGE("e_msg"),
     REPORT("report");
 
     private final String text;
