@@ -82,6 +82,11 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     private int nodeCounter;
 
     /**
+     * Flag for if the Driver has finished
+     */
+    private boolean finished;
+
+    /**
      * Format of time_started and time_finished
      */
     static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
@@ -122,6 +127,7 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     public DriverCommunicatorService(Server server, String xml) {
         System.out.println("Driver Communicator Service created for: " + xml);
         this.nodeCounter = 0;
+        this.finished = false;
         try {
             this.xml = (DocumentBuilderFactory.newInstance()).newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
             this.xPath = XPathFactory.newInstance().newXPath();
@@ -329,16 +335,20 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         }
         currentNodes.clear();
 
-        if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 && allNodeChildrenFinished(parent))
+        if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 && allNodeChildrenFinished(parent)) {
+            this.finished = true;
             this.cancel();
+        }
         else if (!allNodeChildrenFinished(parent)) {
             startNextChild(parent);
         } else if (allNodeChildrenFinished(parent)) {
             do {
                 parent = parent.getParentNode();
             } while (allNodeChildrenFinished(parent) && parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) != 0);
-            if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 &&allNodeChildrenFinished(parent))
+            if (parent.getNodeName().compareTo(XMLUtil.TAG_PROCESS.toString()) == 0 &&allNodeChildrenFinished(parent)) {
                 this.cancel();
+                this.finished = true;
+            }
             else
                 startNextChild(parent);
         }
@@ -627,5 +637,12 @@ public class DriverCommunicatorService extends ScheduledService<String> {
             return -1;
         }
 
+    }
+
+    /**
+     * @return whether process has finished or not
+     */
+    public boolean isFinished() {
+        return finished;
     }
 }
