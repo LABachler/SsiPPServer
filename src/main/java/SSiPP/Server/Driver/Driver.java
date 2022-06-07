@@ -69,11 +69,11 @@ public class Driver {
             builder.command("node", path, id);
             builder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             builder.redirectError(ProcessBuilder.Redirect.INHERIT);
-            try {
+            /*try {
                 Process process = builder.start();
             }   catch (IOException e) {
                 e.printStackTrace();
-            }
+            }*/
         }
 
 

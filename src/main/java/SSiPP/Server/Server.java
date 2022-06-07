@@ -324,22 +324,21 @@ public class Server {
             }
         }
         Document startedProcessDoc = loadXMLFromString(processTemplate.toString());
+        NodeList scaleNodes = (NodeList) xPath.evaluate("//process/@scale", startedProcessDoc, XPathConstants.NODESET);
+        Node scaleNode = scaleNodes.item(0);
+        scaleNode.setNodeValue(String.valueOf(scale));
         String finalProcess = getStringFromDoc(startedProcessDoc);
         finalProcess = finalProcess.replace("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>", "");
         finalProcess = finalProcess.replaceFirst("[\\\r\\\n]+","");
         XPath xPath = XPathFactory.newInstance().newXPath();
         NodeList nodes = (NodeList) xPath.evaluate("//process/@id", startedProcessDoc, XPathConstants.NODESET);
-        NodeList scaleNodes = (NodeList) xPath.evaluate("//process/@scale", startedProcessDoc, XPathConstants.NODESET);
         String name = parseAttribute(startedProcessDoc, "//process/@name");
         Node idNode = nodes.item(0);
-        Node scaleNode = scaleNodes.item(0);
-        scaleNode.setNodeValue(String.valueOf(scale));
         idNode.setNodeValue(String.valueOf(findStartedProcessId()));
         String process = getStringFromDoc(startedProcessDoc);
         process = process.replace("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>", "");
         process = process.replaceFirst("[\\\r\\\n]+","");
-        createFile(process, PROCESSES_PATH + File.separator + findStartedProcessId() +"_"
-                + name + ".txt");
+        createFile(process, PROCESSES_PATH + File.separator + findStartedProcessId() +"_" + name + ".txt");
 
 
         String finalProcessXML = finalProcess;
