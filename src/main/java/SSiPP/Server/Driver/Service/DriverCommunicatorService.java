@@ -160,18 +160,29 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                     try {
                         for (Node n : currentNodes)
                             updateFromDriver(n);
-                        if (allCurrentRunningFinished())
-                            startNextNode();
 
-                        if (abort)
+                        if (allCurrentRunningFinished()) {
+                            setRedis();
+                            startNextNode();
+                            setRedis();
+                        }
+
+                        if (abort) {
                             abortCurrent();
-                        else if (reset)
+                            setRedis();
+                        }
+                        else if (reset) {
                             resetCurrent();
-                        else if (restart)
+                            setRedis();
+                        }
+                        else if (restart) {
                             restartCurrent();
-                        else if (hold)
+                            setRedis();
+                        }
+                        else if (hold) {
                             holdCurrent();
-                        setRedis();
+                            setRedis();
+                        }
                     } catch (RuntimeException e) {
                         System.out.println("Dcs call(): " + e.getMessage());
                     }
@@ -477,21 +488,22 @@ public class DriverCommunicatorService extends ScheduledService<String> {
         for (int i = 0; i < sourceModuleReport.getChildNodes().getLength(); i++) {
             Node source = sourceModuleReport.getChildNodes().item(i);
             String sourceNodeName = source.getNodeName();
+            Node destination = findNodeByName(destinationModuleReport.getChildNodes(), sourceNodeName);
             if (sourceNodeName.compareTo(ModuleReportChildren.MESSAGE.toString()) == 0
                     || sourceNodeName.compareTo(ModuleReportChildren.ERROR_MESSAGE.toString()) == 0
                     || sourceNodeName.compareTo(ModuleReportChildren.ERROR.toString()) == 0
-                    || sourceNodeName.compareTo(ModuleReportChildren.COMMAND.toString()) == 0)
-                updateNodeValue(findNodeByName(destinationModuleReport.getChildNodes(), sourceNodeName), source);
+                    || (sourceNodeName.compareTo(ModuleReportChildren.COMMAND.toString()) == 0
+                            && destination.getTextContent().compareTo(String.valueOf(Command.getNum(Command.CMD_RESET))) != 0))
+                updateNodeValue(destination, source);
             else if (sourceNodeName.compareTo(ModuleReportChildren.STATUS.toString()) == 0) {
-                Node destination = findNodeByName(destinationModuleReport.getChildNodes(), sourceNodeName);
                 if (!source.getTextContent().isEmpty()) {
                     if (Integer.valueOf(source.getTextContent()) == Status.getNum(Status.STAT_COMPLETE)
                             && destination.getTextContent().compareTo(Status.STAT_COMPLETE.toString()) != 0) {
                         LocalDateTime now = LocalDateTime.now();
                         findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString())
                                 .setTextContent(dateTimeFormatter.format(now));
-                        findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.STATUS.toString())
-                                .setTextContent(Command.CMD_RESET.toString());
+                        findNodeByName(destinationModuleReport.getChildNodes(), ModuleReportChildren.COMMAND.toString())
+                                .setTextContent(String.valueOf(Command.getNum(Command.CMD_RESET)));
                     }
                     destination.setTextContent(Status.values()[Integer.valueOf(source.getTextContent())].toString());
                 }

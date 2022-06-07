@@ -4,6 +4,7 @@ package SSiPP.Server.Driver.util;
  * Status translations of the plc
  */
 public enum Status {
+    STAT_NONE("STAT_NONE"),
     STAT_IDLE("STAT_IDLE"),
     STAT_COMPLETE("STAT_COMPLETE"),
     STAT_RUNNING("STAT_RUNNING"),
@@ -25,22 +26,24 @@ public enum Status {
      */
     public static int getNum(Status status) {
         switch (status) {
-            case STAT_IDLE:
+            case STAT_NONE:
                 return 0;
-            case STAT_COMPLETE:
+            case STAT_IDLE:
                 return 1;
-            case STAT_RUNNING:
+            case STAT_COMPLETE:
                 return 2;
-            case STAT_ABORTING:
+            case STAT_RUNNING:
                 return 3;
-            case STAT_ABORTED:
+            case STAT_ABORTING:
                 return 4;
-            case STAT_HOLDING:
+            case STAT_ABORTED:
                 return 5;
-            case STAT_HELD:
+            case STAT_HOLDING:
                 return 6;
-            case STAT_RESTARTING:
+            case STAT_HELD:
                 return 7;
+            case STAT_RESTARTING:
+                return 8;
             default:
                 return -1;
         }
