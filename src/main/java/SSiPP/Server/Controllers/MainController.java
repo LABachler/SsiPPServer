@@ -26,7 +26,7 @@ public class MainController implements Initializable {
     @FXML
     public TableColumn tcPath;
     @FXML
-    public Button btnSimulation;
+    public Button btnManual;
     @FXML
     public Button btnAddDriver;
     @FXML
@@ -53,7 +53,7 @@ public class MainController implements Initializable {
     }
 
     @FXML
-    public void handleBtnSimulationOnMouseReleased(MouseEvent mouseEvent) {
+    public void handleBtnManualOnMouseReleasedAction(MouseEvent mouseEvent) {
         openSimulationDialog();
     }
 
@@ -68,15 +68,15 @@ public class MainController implements Initializable {
     }
 
     private void openSimulationDialog() {
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/SSiPP/Server/simulation-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/SSiPP/Server/manual-view.fxml"));
         try {
             Parent root1 = fxmlLoader.load();
             Stage stage = new Stage();
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initStyle(StageStyle.DECORATED);
-            stage.setTitle("Simulation");
+            stage.setTitle("Start Process");
             stage.setScene(new Scene(root1));
-            ((SimulationController)fxmlLoader.getController()).initServer(server);
+            ((ManualController)fxmlLoader.getController()).initServer(server);
             stage.show();
         } catch (IOException e) {
             throw new RuntimeException(e);

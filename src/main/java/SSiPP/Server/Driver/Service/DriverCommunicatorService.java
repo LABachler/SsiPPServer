@@ -15,7 +15,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
@@ -299,7 +298,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
     private boolean allCurrentRunningFinished() {
         for (Node n : currentNodes) {
             Node moduleInstanceReport = findNodeByName(n.getChildNodes(), XMLUtil.TAG_MODULE_INSTANCE_REPORT.toString());
-            if (findNodeByName(moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString()).getTextContent()
+            if (findNodeByName(
+                    moduleInstanceReport.getChildNodes(), ModuleReportChildren.TIME_FINISHED.toString()).getTextContent()
                     .isEmpty())
                 return false;
         }
@@ -600,7 +600,8 @@ public class DriverCommunicatorService extends ScheduledService<String> {
                 StreamResult result = new StreamResult(sw);
                 DOMSource source = new DOMSource(n);
                 transformer.transform(source, result);
-                String moduleInstanceId = id + "_" + n.getAttributes().getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue();
+                String moduleInstanceId = id + "_" + n.getAttributes()
+                        .getNamedItem(XMLUtil.ATTRIBUTE_ID.toString()).getNodeValue();
                 server.getRedis().set("ssipp_" + moduleInstanceId, result.getWriter().toString());
             } catch (TransformerConfigurationException e) {
                 throw new RuntimeException(e);

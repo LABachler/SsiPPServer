@@ -28,7 +28,7 @@
         <items>
           <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="100.0" prefWidth="160.0">
                <children>
-                  <Button fx:id="btnSimulation" layoutX="36.0" layoutY="85.0" mnemonicParsing="false" onMouseReleased="#handleBtnSimulationOnMouseReleased" text="Simulation" />
+                  <Button fx:id="btnManual" layoutX="36.0" layoutY="85.0" mnemonicParsing="false" onMouseReleased="#handleBtnManualOnMouseReleasedAction" text="Start Process" />
                </children>
             </AnchorPane>
           <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="100.0" prefWidth="160.0">

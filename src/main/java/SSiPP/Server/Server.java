@@ -1,35 +1,34 @@
 package SSiPP.Server;
 
 import SSiPP.Server.Driver.Driver;
-import SSiPP.Server.Driver.Service.DriverCommunicatorService;
-import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.util.Duration;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import redis.clients.jedis.Jedis;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Scanner;
 
 /**
  * Server responsible for handling API and Drivers
@@ -51,11 +50,14 @@ public class Server {
      * module instances directory
      */
     static final String MODULE_INSTANCES_PATH = SSIPP_DIR_PATH + File.separator + "module_instances";
+
+    /**
+     * module directory
+     */
+    static final String MODULES_PATH = SSIPP_DIR_PATH + File.separator + "modules";
     /**
      * driver xml information file
      */
-
-    static final String MODULES_PATH = SSIPP_DIR_PATH + File.separator + "modules";
     static final String DRIVERS_PATH = SSIPP_DIR_PATH + File.separator + "drivers.xml";
     /**
      * driver template
@@ -87,6 +89,9 @@ public class Server {
      * Redis connection
      */
     private final Jedis redis;
+    /**
+     * SSiPP working directory
+     */
     private File workingDir;
     /**
      * document builder for parsing xml
@@ -129,6 +134,9 @@ public class Server {
     }
 
 
+    /**
+     * Checks for all the needed files and directories and creates them if they don't exist
+     */
     private void checkAndCreateFilesAndDirectories(){
         workingDir = new File(SSIPP_DIR_PATH);
         if (!workingDir.exists()) {
@@ -170,6 +178,9 @@ public class Server {
         }
     }
 
+    /**
+     * loads the driver list from the file system
+     */
     private void loadDriversFromFileSystem() {
         try {
             File f = new File(DRIVERS_PATH);
@@ -196,26 +207,29 @@ public class Server {
         }
     }
 
+    /**
+     * adds new driver to the list
+     * @param type driver identifier
+     * @param path path on file system
+     */
     public void addDriver(String type, String path) {
         drivers.add(new Driver(type, path));
     }
 
+    /**
+     * @return list of drivers
+     */
     public ObservableList<Driver> getDrivers() {
         return drivers;
-    }
-
-    private void writeToRedis(int processId, String string) {
-        redis.set("ssipp_" + processId, string);
-    }
-
-    private String readFromRedis(int processId) {
-        return redis.get("ssipp_" + processId);
     }
 
     public void saveInfoToFileSystem() {
         saveDriverInfoToFileSystem();
     }
 
+    /**
+     * Saves information about the drivers into the file system
+     */
     private void saveDriverInfoToFileSystem() {
         try {
             ByteArrayInputStream inputStream = new ByteArrayInputStream(DRIVERS_TEMPLATE.getBytes(StandardCharsets.UTF_8));
@@ -253,6 +267,9 @@ public class Server {
         }
     }
 
+    /**
+     * @return redis connection
+     */
     public Jedis getRedis() {
         return redis;
     }
