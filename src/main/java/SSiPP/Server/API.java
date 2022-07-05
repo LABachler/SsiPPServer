@@ -41,6 +41,12 @@ public class API {
         return server;
     }
 
+    /**
+     * gets last data from a running process with the id of that process
+     * @param id running process id
+     * @return xml string
+     * @throws Exception
+     */
     public String getDcsLastValue(int id) throws Exception {
         for(int i = 0; i < dcs.size(); i++)
         {
@@ -63,6 +69,11 @@ public class API {
         return null;
     }
 
+    /**
+     * creates all contexts(Paths) for an HTTP server
+     * @param server http server
+     * @return server
+     */
     public HttpServer api(HttpServer server) {
 
         server.createContext("/SSiPP/process_templates", (exchange ->
@@ -159,7 +170,7 @@ public class API {
      * @throws Exception :
      */
     private void exchangeData(HttpExchange exchange, String method, String URI) throws Exception {
-        exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "http://localhost:63343");
+        exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
 
         if(method.equals("POST")) {
 
@@ -202,7 +213,8 @@ public class API {
                     case "module_instances" -> getModuleInstances();
                     case "modules" -> getModules();
                     case "historical_processes" -> getHistoricalProcesses();
-                    case "get_running_process" -> getDcsLastValue(Integer.parseInt(exchange.getRequestURI().toString().replaceAll("[\\D]", "")));
+                    case "get_running_process" -> getDcsLastValue(Integer.parseInt(
+                            exchange.getRequestURI().toString().replaceAll("[\\D]", "")));
                     case "currently_running_processes" -> getRunningProcesses();
                     default -> "";
                 };
@@ -218,6 +230,10 @@ public class API {
         exchange.close();
     }
 
+    /**
+     * creates a xml string with all running processes
+     * @return xml string
+     */
     private String getRunningProcesses(){
         StringBuilder runningProcesses = new StringBuilder("<runningProcesses>");
 
@@ -228,6 +244,11 @@ public class API {
         return runningProcesses.toString();
     }
 
+    /**
+     * starts or stops a process depending on a command in a string
+     * @param xmlData xml string with command and process id
+     * @throws Exception
+     */
     private void startOrStopProcess(String xmlData) throws Exception {
         String[] files = new File(SSiPP.Server.Server.PROCESS_TEMPLATE_PATH).list();
         Document doc = loadXMLFromString(xmlData);
@@ -272,6 +293,13 @@ public class API {
         }
     }
 
+    /**
+     * creates an id for a historical process
+     * inserts that id instead of a process id
+     * saves the process in historical processes
+     * @param finishedProcess xml string of a process
+     * @throws Exception
+     */
     private void saveFinishedProcess(String finishedProcess) throws Exception {
         Document finishedProcessDoc = loadXMLFromString(finishedProcess);
         NodeList nodes = (NodeList) xPath.evaluate("//process/@id", finishedProcessDoc, XPathConstants.NODESET);
@@ -284,6 +312,11 @@ public class API {
         createFile(process, SSiPP.Server.Server.PROCESSES_PATH + File.separator + findStartedProcessId() +"_" + name + ".txt");
 
     }
+
+    /**
+     * searches through historical process ids
+     * @return next free id number for a process that is to be saved
+     */
     private int findStartedProcessId(){
         String[] files = new File(SSiPP.Server.Server.PROCESSES_PATH).list();
         int i = 0;
@@ -294,6 +327,13 @@ public class API {
         }
         return i;
     }
+
+    /**
+     * loops through all saved process templates
+     * and builds one string out of them
+     * @return xml string of all process templates
+     * @throws IOException
+     */
     private String getProcessTemplates() throws IOException {
         String[] files = new File(SSiPP.Server.Server.PROCESS_TEMPLATE_PATH).list();
         StringBuilder processTemplates = new StringBuilder("<processes>");
@@ -309,67 +349,115 @@ public class API {
         processTemplates.append("</processes>");
         return processTemplates.toString();
     }
+
+    /**
+     * loops through all saved module instances
+     * and builds one xml string out of them
+     * @return xml string with all module instances
+     * @throws FileNotFoundException
+     */
     private String getModuleInstances() throws FileNotFoundException {
         String[] files = new File(SSiPP.Server.Server.MODULE_INSTANCES_PATH).list();
-        StringBuilder processTemplates = new StringBuilder("<module_instances>");
+        StringBuilder moduleInstanceTemplates = new StringBuilder("<module_instances>");
         for(int i = 0; i< files.length; i++) {
             File myObj = new File(SSiPP.Server.Server.MODULE_INSTANCES_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
-                processTemplates.append(data);
+                moduleInstanceTemplates.append(data);
             }
             myReader.close();
         }
-        processTemplates.append("</module_instances>");
-        return processTemplates.toString();
+        moduleInstanceTemplates.append("</module_instances>");
+        return moduleInstanceTemplates.toString();
     }
+
+    /**
+     * loops through all modules and builds one xml string out of them
+     * @return xml string of all
+     * @throws FileNotFoundException
+     */
     private String getModules() throws FileNotFoundException {
         String[] files = new File(SSiPP.Server.Server.MODULES_PATH).list();
-        StringBuilder processTemplates = new StringBuilder("<modules>");
+        StringBuilder moduleTemplates = new StringBuilder("<modules>");
         for(int i = 0; i< files.length; i++) {
             File myObj = new File(SSiPP.Server.Server.MODULES_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
-                processTemplates.append(data);
+                moduleTemplates.append(data);
             }
             myReader.close();
         }
-        processTemplates.append("</modules>");
-        return processTemplates.toString();
+        moduleTemplates.append("</modules>");
+        return moduleTemplates.toString();
     }
+
+    /**
+     * loops through all saved historical processes
+     * and builds one string out of them
+     * @return xml string of all historical processes
+     * @throws FileNotFoundException
+     */
     private String getHistoricalProcesses() throws FileNotFoundException {
         String[] files = new File(SSiPP.Server.Server.PROCESSES_PATH).list();
-        StringBuilder processTemplates = new StringBuilder("<processes>");
+        StringBuilder historicalProcesses = new StringBuilder("<processes>");
         for(int i = 0; i< files.length; i++) {
             File myObj = new File(SSiPP.Server.Server.PROCESSES_PATH + File.separator + files[i]);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNextLine()) {
                 String data = myReader.nextLine();
-                processTemplates.append(data);
+                historicalProcesses.append(data);
             }
             myReader.close();
         }
-        processTemplates.append("</processes>");
-        return processTemplates.toString();
+        historicalProcesses.append("</processes>");
+        return historicalProcesses.toString();
     }
+
+    /**
+     * out of xml string of a process creates an XML document
+     * gets a name and id out of the document
+     * saves the process in a folder for processes on a computer
+     * @param data process template xml string
+     * @throws Exception
+     */
     private void addProcessTemplate(String data) throws Exception {
         Document doc = loadXMLFromString(data);
         String fileName = parseAttribute(doc, "//process/@name");
         String fileID = parseAttribute(doc,"//process/@id");
-        createFile(data,SSiPP.Server.Server.PROCESS_TEMPLATE_PATH + File.separator + fileID + "_" + fileName+".txt");
+        createFile(data,SSiPP.Server.Server.PROCESS_TEMPLATE_PATH +
+                File.separator + fileID + "_" + fileName+".txt");
     }
+
+    /**
+     * creates an XML document out of an XML string for a module instance and saves it
+     * @param data module instance xml string
+     * @throws Exception
+     */
     private void addModuleInstance(String data) throws Exception {
         Document doc = loadXMLFromString(data);
         String fileName = parseAttribute( doc, "//module_instance/@datablock_name");
         createFile(data,SSiPP.Server.Server.MODULE_INSTANCES_PATH+ File.separator + fileName+".txt");
     }
+
+    /**
+     * creates an XML document out of an XML string for a module and saves it
+     * @param data module xml string
+     * @throws Exception
+     */
     private void addModule(String data) throws Exception {
         Document doc = loadXMLFromString(data);
         String fileName = parseAttribute( doc, "//module/@name");
         createFile(data,SSiPP.Server.Server.MODULES_PATH + File.separator + fileName+".txt");
     }
+
+    /**
+     * creates an XML document from XML string
+     * @param xml xml string
+     * @return Document
+     * @throws Exception
+     */
     public static Document loadXMLFromString(String xml) throws Exception
     {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -377,8 +465,14 @@ public class API {
         InputSource is = new InputSource(new StringReader(xml));
         return builder.parse(is);
     }
-    public String getStringFromDoc(Document doc) throws TransformerException {
 
+    /**
+     * converts XML Document into XML string
+     * @param doc XML document
+     * @return XML string
+     * @throws TransformerException
+     */
+    public String getStringFromDoc(Document doc) throws TransformerException {
         DOMSource domSource = new DOMSource(doc);
         StringWriter writer = new StringWriter();
         StreamResult result = new StreamResult(writer);
@@ -406,6 +500,13 @@ public class API {
         }
         return value;
     }
+
+    /**
+     * creates and saves the file on a given path
+     * @param data data to be written in the file
+     * @param path where to save the file
+     * @throws IOException
+     */
     private void createFile(String data, String path) throws IOException {
         File file = new File(path);
         file.createNewFile();
